@@ -6,6 +6,20 @@ from bakery import assert_equal
 
 
 
+#Github Info
+set_website_title("Stoichiometry Calculator")
+set_site_information(
+    author="Matthew Li",
+    description="",
+    sources=["https://pypi.org/project/molmass/", "https://drafter-edu.github.io/drafter/"],
+    planning=["CS1 Final Project 1_ Design.docx", "CS1 Final Project 0_ Pick a Problem.docx"],
+    links=["https://github.com/mattli-26/Stoichiometry-Calculator"]
+)
+hide_debug_information()
+set_website_framed(False)
+
+
+
 #Defining Dataclasses
 @dataclass
 class Compound:
