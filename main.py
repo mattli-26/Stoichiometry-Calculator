@@ -40,7 +40,6 @@ class Compound:
     initial: float
     final: float
 
-empty_compound = Compound("", 0, 0, 0., 0.)
 
 @dataclass
 class State:
@@ -81,26 +80,35 @@ def update_state(reaction: str) -> State:
         return State("", [], [], "INVALID FORMAT")
     else:
         state_formula = reaction
-    
     #Reactants
     reactants = reaction.split("->")[0]
-    reactant_list = reactants.split("+")
+    if "+" not in reactants:
+        reactant_list = [reactants]
+    else:
+        reactant_list = reactants.split("+")
     for i, reactant in enumerate(reactant_list):
-        reactant_list[i] = reactant.strip()
+        if not reactant.strip():
+            return State("", [], [], "INVALID FORMAT")
         if reactant.strip().isdigit():
             return State("", [], [], "INVALID FORMAT")
+        reactant_list[i] = reactant.strip()
     state_reactants = input_compounds(reactant_list)
-    
     #Products
     products = reaction.split("->")[1]
-    product_list = products.split("+")
+    if "+" not in products:
+        product_list = [products]
+    else:
+        product_list = products.split("+")
     for i, product in enumerate(product_list):
-        product_list[i] = product.strip()
+        if not product.strip():
+            return State("", [], [], "INVALID FORMAT")
         if product.strip().isdigit():
             return State("", [], [], "INVALID FORMAT")
+        product_list[i] = product.strip()
     state_products = input_compounds(product_list)
     
     return State(state_formula, state_reactants, state_products, "")
+assert_equal(update_state(""), State("", [], [], "INVALID FORMAT"))
 
 
 def input_compounds(compounds: list[str]) -> list[Compound]:
@@ -129,11 +137,12 @@ def input_compounds(compounds: list[str]) -> list[Compound]:
     while len(updated_compounds) < 3:
         updated_compounds.append(Compound("", 0, 0, 0., 0.))
     return updated_compounds
-
-assert_equal(input_compounds(["6CO2", "6H2O"]), [Compound("CO2", 44.00955, 6, 0., 0.),
-                                                 Compound("H2O", 18.015287, 6, 0., 0.), empty_compound])
-assert_equal(input_compounds(["C6H12O6"]), [Compound("C6H12O6", 180.156162, 1, 0., 0.),
-                                            empty_compound, empty_compound])
+assert_equal(input_compounds(["H2O"]), [Compound("H2O", 18.015287, 1, 0., 0.),
+                                        Compound("", 0., 0, 0., 0.),
+                                        Compound("", 0., 0, 0., 0.)])
+assert_equal(input_compounds(["6CO2"]), [Compound("CO2", 44.00955, 6, 0., 0.),
+                                         Compound("", 0., 0, 0., 0.),
+                                         Compound("", 0., 0, 0., 0.)])
 
 
 def calculate_initial_reactant(state: State, known: Compound) -> State:
@@ -146,8 +155,12 @@ def calculate_initial_reactant(state: State, known: Compound) -> State:
     Return:
         State: the updated state of the program, with the calculated values updated
     """
-    
-    known_mol = known.initial / known.molar
+    for reactant in state.reactants:
+        if reactant.formula == known.formula:
+            known_mol = known.initial / known.molar
+    for product in state.products:
+        if product.formula == known.formula:
+            known_mol = known.final / known.molar
     for i, reactant in enumerate(state.reactants):
         if reactant.formula != known.formula and reactant.formula:
             reactant_mol = known_mol / known.coefficient * reactant.coefficient
@@ -155,6 +168,12 @@ def calculate_initial_reactant(state: State, known: Compound) -> State:
         elif not reactant.formula:
             state.reactants[i].initial = 0.
     return state
+assert_equal(
+    calculate_initial_reactant(
+        State("", [Compound("H2", 2., 2, 4., 0.), Compound("O2", 32., 1, 0., 0.)], [], ""),
+        Compound("H2", 2., 2, 4., 0.)
+    ).reactants[1].initial, 32.
+)
 
 
 def calculate_final_reactant(state: State, known: Compound) -> State:
@@ -168,7 +187,12 @@ def calculate_final_reactant(state: State, known: Compound) -> State:
         State: the updated state of the program, with the final values of products updated
     """
     
-    known_mol = known.initial / known.molar
+    for reactant in state.reactants:
+        if reactant.formula == known.formula:
+            known_mol = known.initial / known.molar
+    for product in state.products:
+        if product.formula == known.formula:
+            known_mol = known.final / known.molar
     for i, reactant in enumerate(state.reactants):
         if reactant.formula and reactant.initial:
             reactant_mol = known_mol / known.coefficient * reactant.coefficient
@@ -176,6 +200,12 @@ def calculate_final_reactant(state: State, known: Compound) -> State:
         else:
             reactant.final = 0.
     return state
+assert_equal(
+    calculate_final_reactant(
+        State("", [Compound("H2", 2., 2, 10., 0.), Compound("O2", 32., 1, 32., 0.)], [], ""),
+        Compound("O2", 32., 1, 32., 0.)
+    ).reactants[0].final, 6.
+)
 
 
 def calculate_final_product(state: State, known: Compound) -> State:
@@ -189,7 +219,12 @@ def calculate_final_product(state: State, known: Compound) -> State:
         State: the updated state of the program, with the calculated values updated
     """
     
-    known_mol = known.initial / known.molar
+    for reactant in state.reactants:
+        if reactant.formula == known.formula:
+            known_mol = known.initial / known.molar
+    for product in state.products:
+        if product.formula == known.formula:
+            known_mol = known.final / known.molar
     for i, product in enumerate(state.products):
         if product.formula:
             product_mol = known_mol / known.coefficient * product.coefficient
@@ -197,11 +232,17 @@ def calculate_final_product(state: State, known: Compound) -> State:
         else:
             state.products[i].final = 0.
     return state
+assert_equal(
+    calculate_final_product(
+        State("", [Compound("H2", 2., 2, 4., 0.)], [Compound("H2O", 18., 2, 0., 0.)], ""),
+        Compound("H2", 2., 2, 4., 0.)
+    ).products[0].final, 36.
+)
 
 
 def identify_limiting(reactants: list[Compound]) -> int:
     """
-    Givene a list of reactants, this function identifies the index of the limiting reactant.
+    Given a list of reactants, this function identifies the index of the limiting reactant.
     
     Arguments:
         reactants(list[Compound]): the list of reactants with amounts input by user
@@ -223,8 +264,8 @@ def identify_limiting(reactants: list[Compound]) -> int:
             minimum = reaction
             minimum_i = i
     return minimum_i
-        
-
+assert_equal(identify_limiting([Compound("H2", 2., 2, 4., 0.), Compound("O2", 32., 1, 64., 0.)]), 0)
+assert_equal(identify_limiting([Compound("H2", 2., 2, 10., 0.), Compound("O2", 32., 1, 32., 0.)]), 1)
 
 
 
@@ -257,6 +298,23 @@ def index(state: State) -> Page:
             Button("Input Formula", "input_formula")
         ],
     )
+assert_equal(index(State("", [], [], "")),
+             Page(
+        State("", [], [], ""),
+        [
+            Header("Stoichiometry Calculator"),
+            "Your reaction solver",
+            "\n",
+            "Reaction Formula: ",
+            "\n",
+            "Please input in format \"Reactant1 + Reactant2 -> Product1 + Product2\"",
+            "\n",
+            "",
+            "\n",
+            TextBox("reaction_formula", "", style_width="800px"),
+            "\n",
+            Button("Input Formula", "input_formula")
+        ],))
 
 
 @route
@@ -278,6 +336,7 @@ def input_formula(state: State, reaction_formula: str) -> Page:
     for i, reactant in enumerate(state.reactants):
         if reactant.formula:
             content.append("Reactant " + str(i + 1) + ": " + reactant.formula + "\n")
+    content.append("\n")
     for i, product in enumerate(state.products):
         if product.formula:
             content.append("Product " + str(i + 1) + ": " + product.formula + "\n")
@@ -287,6 +346,26 @@ def input_formula(state: State, reaction_formula: str) -> Page:
         state,
         content,
     )
+assert_equal(
+    input_formula(State("", [], [], ""), "H2+O2"),
+    Page(
+        State("", [], [], "INVALID FORMAT"),
+        [
+            Header("Stoichiometry Calculator"),
+            "Your reaction solver",
+            "\n",
+            "Reaction Formula: ",
+            "\n",
+            'Please input in format "Reactant1 + Reactant2 -> Product1 + Product2"',
+            "\n",
+            "INVALID FORMAT",
+            "\n",
+            TextBox("reaction_formula", "", style_width="800px"),
+            "\n",
+            Button("Input Formula", "input_formula")
+        ]
+    )
+)
 
 
 @route
@@ -300,6 +379,54 @@ def edit_formula(state: State) -> Page:
         Page: the main page of the program
     """
     return index(state)
+assert_equal(
+    edit_formula(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 4., 0.),
+                Compound("O2", 32., 1, 32., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 36.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        )
+    ),
+    Page(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 4., 0.),
+                Compound("O2", 32., 1, 32., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 36.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        ),
+        [
+            Header("Stoichiometry Calculator"),
+            "Your reaction solver",
+            "\n",
+            "Reaction Formula: ",
+            "\n",
+            'Please input in format "Reactant1 + Reactant2 -> Product1 + Product2"',
+            "\n",
+            "",
+            "\n",
+            TextBox("reaction_formula", "2H2+O2->2H2O", style_width="800px"),
+            "\n",
+            Button("Input Formula", "input_formula")
+        ]
+    )
+)
 
 
 @route
@@ -313,7 +440,7 @@ def confirm_formula(state: State) -> Page:
         Page: a page that prompts user to input amount of different compounds
     """
     
-    content = [Header("Input amounts in grams" + state.error), "Input either Reactants or Products\n",
+    content = [Header("Input amounts in grams"), "Input either Reactants or 1 Product\n",
                "DO NOT input both sides\n", "Input minimum of 1 textbox\n", "Leave unknowns blank\n", "\n", "\n"]
     content.append("The reaction starts with")
     for i, reactant in enumerate(state.reactants):
@@ -339,6 +466,66 @@ def confirm_formula(state: State) -> Page:
         state,
         content,
         )
+assert_equal(
+    confirm_formula(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 0., 0.),
+                Compound("O2", 32., 1, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 0.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        )
+    ),
+    Page(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 0., 0.),
+                Compound("O2", 32., 1, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 0.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        ),
+        [
+            Header("Input amounts in grams"),
+            "Input either Reactants or 1 Product\n",
+            "DO NOT input both sides\n",
+            "Input minimum of 1 textbox\n",
+            "Leave unknowns blank\n",
+            "\n",
+            "\n",
+            "The reaction starts with",
+            "\nH2: ",
+            TextBox("reactant1_initial", ""),
+            "\nO2: ",
+            TextBox("reactant2_initial", ""),
+            "\n",
+            TextBox("reactant3_initial", "", style_display="none"),
+            "\n",
+            "The reaction ends with",
+            "\nH2O: ",
+            TextBox("product1_final", ""),
+            "\n",
+            TextBox("product2_final", "", style_display="none"),
+            "\n",
+            TextBox("product3_final", "", style_display="none"),
+            "\n\n",
+            Button("Input Values", "input_amounts")
+        ]
+    )
+)
 
 
 @route
@@ -367,7 +554,6 @@ def input_amounts(state: State, reactant1_initial: str, reactant2_initial: str, 
     for i, reactant_initial in enumerate(reactants_initials):
         if reactant_initial:
             state.reactants[i].initial = float(reactant_initial)
-            
         else:
             state.reactants[i].initial = 0.
         reactants_initials[i] = bool(reactant_initial)
@@ -395,8 +581,11 @@ def input_amounts(state: State, reactant1_initial: str, reactant2_initial: str, 
         
     #Reject Input
     if sum_reactants and sum_products:
-        state.error = "     DO NOT ENTER BOTH SIDES"
-        return confirm_formula(state)
+        state.error = "\nDO NOT ENTER BOTH SIDES"
+        return error(state)
+    if not sum_reactants and not sum_products:
+        state.error = "\nENTER AT LEAST ONE AMOUNT"
+        return error(state)
     
     #Given Reactant
     content = [Header("Result")]
@@ -442,6 +631,125 @@ def input_amounts(state: State, reactant1_initial: str, reactant2_initial: str, 
             state,
             content
             )
+    #Given 1 Product
+    if sum_products == 1:
+        given = state.products[given_products[0]]
+        state = calculate_initial_reactant(state, given)
+        content.append("Reactants Required:\n")
+        for reactant in state.reactants:
+            if reactant.formula:
+                content.append(reactant.formula + ": " + str(round(reactant.initial, 3)) + "g\n")
+        state = calculate_final_product(state, given)
+        content.append("\nProducts Produced:\n")
+        for product in state.products:
+            if product.formula:
+                content.append(product.formula + ": " + str(round(product.final, 3)) + "g\n")
+        content.append("\n")
+        content.append(Button("Reset", "reset"))
+        content.append(Button("Edit Inputs", "edit_input"))
+        return Page(
+            state,
+            content
+            )
+    #Given 1+ Products
+    if sum_products > 1:
+        state.error = "\nOnly input one product"
+        return error(state)
+assert_equal(
+    input_amounts(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 0., 0.),
+                Compound("O2", 32., 1, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 0.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        ),
+        "10", "32", "", "", "", ""
+    ),
+    Page(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 4., 6.),
+                Compound("O2", 32., 1, 32., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 36.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        ),
+        [
+            Header("Result"),
+            "Reactants Consumed:\n",
+            "H2: 4.0",
+            "   (Remaining: 6.0g)\n",
+            "O2: 32.0",
+            "   (Remaining: 0.0g)\n",
+            "\nProducts Produced:\n",
+            "H2O: 36.0g\n",
+            "\n",
+            Button("Reset", "reset"),
+            Button("Edit Inputs", "edit_input")
+        ]
+    )
+)
+assert_equal(
+    input_amounts(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 0., 0.),
+                Compound("O2", 32., 1, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 0.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        ),
+        "", "", "", "36", "", ""
+    ),
+    Page(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 4., 0.),
+                Compound("O2", 32., 1, 32., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 36.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        ),
+        [
+            Header("Result"),
+            "Reactants Required:\n",
+            "H2: 4.0g\n",
+            "O2: 32.0g\n",
+            "\nProducts Produced:\n",
+            "H2O: 36.0g\n",
+            "\n",
+            Button("Reset", "reset"),
+            Button("Edit Inputs", "edit_input")
+        ]
+    )
+)
+
     
     
 @route
@@ -456,6 +764,41 @@ def reset(state: State) -> Page:
     """
     
     return index(State("", [], [], ""))
+assert_equal(
+    reset(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 10., 0.),
+                Compound("O2", 32., 1, 64., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 36.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            "Old error"
+        )
+    ),
+    Page(
+        State("", [], [], ""),
+        [
+            Header("Stoichiometry Calculator"),
+            "Your reaction solver",
+            "\n",
+            "Reaction Formula: ",
+            "\n",
+            'Please input in format "Reactant1 + Reactant2 -> Product1 + Product2"',
+            "\n",
+            "",
+            "\n",
+            TextBox("reaction_formula", "", style_width="800px"),
+            "\n",
+            Button("Input Formula", "input_formula")
+        ]
+    )
+)
 
 
 @route
@@ -472,14 +815,98 @@ def edit_input(state: State) -> Page:
     for i in range(len(state.reactants)):
         state.reactants[i].initial = 0.
         state.reactants[i].final = 0.
-    for idnex in range(len(state.products)):
+    for i in range(len(state.products)):
         state.products[i].initial = 0.
         state.products[i].final = 0.
     return confirm_formula(state)
+assert_equal(
+    edit_input(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 10., 6.),
+                Compound("O2", 32., 1, 64., 32.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 18., 36.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        )
+    ),
+    Page(
+        State(
+            "2H2+O2->2H2O",
+            [
+                Compound("H2", 2., 2, 0., 0.),
+                Compound("O2", 32., 1, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            [
+                Compound("H2O", 18., 2, 0., 0.),
+                Compound("", 0., 0, 0., 0.),
+                Compound("", 0., 0, 0., 0.)
+            ],
+            ""
+        ),
+        [
+            Header("Input amounts in grams"),
+            "Input either Reactants or 1 Product\n",
+            "DO NOT input both sides\n",
+            "Input minimum of 1 textbox\n",
+            "Leave unknowns blank\n",
+            "\n",
+            "\n",
+            "The reaction starts with",
+            "\nH2: ",
+            TextBox("reactant1_initial", ""),
+            "\nO2: ",
+            TextBox("reactant2_initial", ""),
+            "\n",
+            TextBox("reactant3_initial", "", style_display="none"),
+            "\n",
+            "The reaction ends with",
+            "\nH2O: ",
+            TextBox("product1_final", ""),
+            "\n",
+            TextBox("product2_final", "", style_display="none"),
+            "\n",
+            TextBox("product3_final", "", style_display="none"),
+            "\n\n",
+            Button("Input Values", "input_amounts")
+        ]
+    )
+)
 
 
-
-
+@route
+def error(state: State) -> Page:
+    """
+    A page with the error message displayed, and a retry button
+    
+    Arguments:
+        state(State): the current state of the program
+    Return:
+        Page: the input amount page
+    """
+    content = [Header("ERROR" + state.error), "\n\n\n", Button("Enter Inputs Again", "confirm_formula")]
+    return Page(
+        state,
+        content
+        )
+assert_equal(
+    error(State("", [], [], "\nOnly input one product")),
+    Page(
+        State("", [], [], "\nOnly input one product"),
+        [
+            Header("ERROR\nOnly input one product"),
+            "\n\n\n",
+            Button("Enter Inputs Again", "confirm_formula")
+        ]
+    )
+)
 
 
 
